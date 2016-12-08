@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Démonstration de la librairie d3.js</title>
+
+<link href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700i" rel="stylesheet">
+
+<style>
+	/* set the CSS */
+	/*	section,*/
+	
+	body {
+		font-family: 'Droid Serif', serif;
+	}
+	
+	h1 {
+		font-style: italic;
+	}
+	
+	figure {
+		position: relative;
+		padding: 20px 20px 30px 50px;
+	}
+	
+	figure svg {
+		border: 2px dashed #137;
+		background-color: #aef;
+		padding: 10px 0;
+	}
+	
+	.bubble {
+		background-color: #137;
+	}
+	
+	p {
+		color: #ccc;
+		text-align: left;
+		padding: 10px;
+	}
+	
+	figcaption {
+		text-align: center;
+		padding: 0.3em;
+	}
+</style>
+
+<body>
+	<h1>Démonstration de la librairie d3.js</h1>
+
+	<!-- load the d3.js library -->
+	<script src="https://d3js.org/d3.v4.min.js"></script>
+	<script>
+		// Carré de sable JavaScript
+		window.onload = function () {
+
+			// -----INITIALISATION-----
+			// Les dimensions du graphique
+			var width = 350,
+				height = 500,
+				maxRadius = 90;
+
+			// set the radius range
+			var r = d3.scaleLinear()
+				.range([0, maxRadius]);
+
+
+
+			// append the figure object to the body of the page
+			// append a 'section' element to 'figure'
+			// Ajouter le parent du graphique tout de suite pour que la mise en page des boites soit déjà prête
+			var chart = d3.select("body").insert("figure")
+				.append("svg")
+				.attr("width", width)
+				.attr("height", height);
+
+			// -----LOADER LES DONNÉES (asynchrone)-----
+			d3.json("data/films.json", function (error, data) {
+
+				if (error) {
+					throw error;
+				} else {
+					console.log(data);
+					drawChart(data);
+				}
+
+			});
+
+
+			// -----FONCTION POUR CRÉER LE GRAPHIQUE-----
+			function drawChart(data) {
+
+				var forceStrength = 0.003;
+				var gravity = height/4;
+
+				// Typer la colonne priorite en nombre
+				// (par défaut toutes les données sont des chaînes de caractères)
+				data.forEach(function (d) {
+					// assurer que c'est un nombre
+					d.priorite = +d.priorite;
+				});
+
+				// Mettre la donnée à l'échelle du graphique
+				r.domain([0, d3.max(data, function (d) {
+					return d.priorite;
+				})]);
+
+
+				//				function charge(d) {
+				//					return -Math.pow(d.radius, 2.0) * forceStrength;
+				//				}
+
+				var simulation = d3.forceSimulation()
+					.velocityDecay(0.1)
+					//        .force('x', d3.forceX().strength(forceStrength).x(center))
+
+					.force('y', d3.forceY().strength(forceStrength).y(gravity))
+					//        .force('charge', d3.forceManyBody().strength(charge))
+//					.force("collide", d3.forceCollide(20))
+										.force("collide", d3.forceCollide().radius(function (d) {
+											return d.radius + 0.5;
+										}).iterations(2))
+					.on('tick', ticked);
+
+				simulation.stop();
+
+
+				//nodes
+				var nodes = data.map(function (d) {
+					var myRadius = r(d.priorite);
+					return {
+						id: d.id,
+						titre: d.titre,
+						priorite: d.priorite,
+						radius: myRadius,
+						x: myRadius + (Math.random() * (width - myRadius * 2)),
+						y: myRadius + (Math.random() * (height - myRadius * 2))
+					};
+				});
+
+				nodes.sort(function (a, b) {
+					return b.value - a.value;
+				});
+
+				bubbles = chart.selectAll('.bubble')
+					.data(nodes, function (d) {
+						return d.id;
+					});
+
+				//*
+				// AJOUTER LES BARRES AU GRAPHIQUE
+				// 1. selectionner le contenant
+				var bubblesE = bubbles
+					// 2. Définir le "data join" (définir le type d'élément auquel on va attacher les données)
+					//					.selectAll(".bubble")
+					// 3. Créer le "data join"
+					//					.data(data)
+					// 4. Créer un élément pour chaque item
+					.enter().append("circle")
+					// Ajouter une classe
+					.attr("class", ".bubble")
+					// UTILISER LES DONNÉES
+					// 5. placer les cercles de manière aléatoire
+					.attr("cx", function (d) {
+						var myRadius = r(d.priorite);
+						return myRadius + (Math.random() * (width - myRadius * 2));
+					})
+					.attr("cy", function (d) {
+						var myRadius = r(d.priorite);
+						return myRadius + (Math.random() * (height - myRadius * 2));
+					})
+					// 6. Déterminer la circonférence du cercle selon la taille de la valeur de priorite
+					.attr('r', 0);
+				//					.attr("r", function (d) {
+				//						return r(d.priorite);
+				//					});
+				// Ajouter le titre en attribut title
+				//.attr("title", function (d) {
+				//	return d.id + " " + d.titre;
+				//})
+				// Afficher la valeur priorite sur la barre
+				//.append("p").html(function (d) {
+				//	return d.priorite;
+				//});
+
+				bubbles = bubbles.merge(bubblesE);
+
+				bubbles.transition()
+					.duration(2000)
+					.attr('r', function (d) {
+						return d.radius;
+					});
+
+				simulation.nodes(nodes);
+
+
+				// Ajouter le figcaption
+				//				d3.select("figure").append("figcaption")
+				//					.html("Nombre de priorite dans chaque id de la série Harry Potter<br>(version anglophone)");
+
+				//				force.start();
+				//*/
+
+simulation.restart();
+
+			}
+
+			function ticked() {
+				console.log("aaa");
+				bubbles
+					.attr('cx', function (d) {
+					
+				var myRadius = r(d.priorite);
+						return d.x =Math.max(myRadius, Math.min(width - myRadius, d.x));
+					})
+					.attr('cy', function (d) {
+					
+				var myRadius = r(d.priorite);
+						return d.y = Math.max(myRadius, Math.min(height - myRadius, d.y));
+					});
+			}
+
+
+
+		}
+
+		
+	</script>
+</body>
