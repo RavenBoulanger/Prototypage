@@ -22,13 +22,26 @@
 	}
 	
 	figure svg {
-		border: 2px dashed #137;
+		/*		border: 2px dashed #137;*/
 		background-color: #aef;
-		padding: 10px 0;
 	}
 	
-	.bubble {
+	.bulle {
 		background-color: #137;
+	}
+	
+	.bulle:hover {
+		cursor: pointer;
+	}
+	
+	.bulle-details {
+		margin-top: -140px;
+		margin-left: 20px;
+	}
+	
+	.bulle-details h3,
+	.bulle-details p {
+		color: #fff;
 	}
 	
 	p {
@@ -45,6 +58,7 @@
 
 <body>
 	<h1>Démonstration de la librairie d3.js</h1>
+	<section id="data-figure"></section>
 
 	<!-- load the d3.js library -->
 	<script src="https://d3js.org/d3.v4.min.js"></script>
@@ -53,6 +67,8 @@
 		window.onload = function () {
 
 			// -----INITIALISATION-----
+			
+			var vueDetails = false;
 			// Les dimensions du graphique
 			var width = 350,
 				height = 500,
@@ -67,10 +83,15 @@
 			// append the figure object to the body of the page
 			// append a 'section' element to 'figure'
 			// Ajouter le parent du graphique tout de suite pour que la mise en page des boites soit déjà prête
-			var chart = d3.select("body").insert("figure")
+			var chart = d3.select("#data-figure").insert("figure")
 				.append("svg")
 				.attr("width", width)
 				.attr("height", height);
+
+
+			var details = d3.select("#data-figure figure")
+				.append("section")
+				.attr("class", "bulle-details");
 
 			// -----LOADER LES DONNÉES (asynchrone)-----
 			d3.json("data/films.json", function (error, data) {
@@ -85,11 +106,12 @@
 			});
 
 
-			// -----FONCTION POUR CRÉER LE GRAPHIQUE-----
+			// -----FONCTION POUR CRÉER LA VISUALISATION-----
 			function drawChart(data) {
 
-				var forceStrength = 0.003;
-				var gravity = height/4;
+				// initialization des variables pour la simulation
+				var forceStrength = 0.002;
+				var gravity = 01;
 
 				// Typer la colonne priorite en nombre
 				// (par défaut toutes les données sont des chaînes de caractères)
@@ -103,60 +125,58 @@
 					return d.priorite;
 				})]);
 
-
-				//				function charge(d) {
-				//					return -Math.pow(d.radius, 2.0) * forceStrength;
-				//				}
-
+				// 
 				var simulation = d3.forceSimulation()
-					.velocityDecay(0.1)
+					.velocityDecay(0.04)
 					//        .force('x', d3.forceX().strength(forceStrength).x(center))
+					.force("y", d3.forceY().strength(forceStrength).y(gravity))
+					.force("collide", d3.forceCollide().radius(function (d) {
+						return d.radius + 0.5;
+					}).iterations(2))
+					// appelle la fonction pour animer à chaque "tick"
+					.on("tick", ticked);
 
-					.force('y', d3.forceY().strength(forceStrength).y(gravity))
-					//        .force('charge', d3.forceManyBody().strength(charge))
-//					.force("collide", d3.forceCollide(20))
-										.force("collide", d3.forceCollide().radius(function (d) {
-											return d.radius + 0.5;
-										}).iterations(2))
-					.on('tick', ticked);
-
+				// La simulation est en marche par défaut. Il faut l'arrêter jusqu'à ce qu'on aie crée les formes
 				simulation.stop();
 
 
-				//nodes
+				// Création de nodes
 				var nodes = data.map(function (d) {
 					var myRadius = r(d.priorite);
 					return {
 						id: d.id,
 						titre: d.titre,
 						priorite: d.priorite,
+						tags: d.tags,
 						radius: myRadius,
 						x: myRadius + (Math.random() * (width - myRadius * 2)),
 						y: myRadius + (Math.random() * (height - myRadius * 2))
 					};
 				});
 
+				// il faut que je vérifie ce que cette fonction fait, à première vue elle ne semble pas nécessaire dans notre cas
 				nodes.sort(function (a, b) {
 					return b.value - a.value;
 				});
 
-				bubbles = chart.selectAll('.bubble')
+				// créer la variable pour les formes
+				// 1. selectionner le contenant
+				bulles = chart
+					// 2. Définir le "data join" (définir le type d'élément auquel on va attacher les données)
+					.selectAll(".bulle")
+					// 3. Créer le "data join"
 					.data(nodes, function (d) {
 						return d.id;
 					});
 
-				//*
-				// AJOUTER LES BARRES AU GRAPHIQUE
-				// 1. selectionner le contenant
-				var bubblesE = bubbles
-					// 2. Définir le "data join" (définir le type d'élément auquel on va attacher les données)
-					//					.selectAll(".bubble")
-					// 3. Créer le "data join"
-					//					.data(data)
+				//
+				// AJOUTER LES BULLES À LA VISUALISATION
+				// créer une variable temporaire
+				var bullesTemp = bulles
 					// 4. Créer un élément pour chaque item
 					.enter().append("circle")
 					// Ajouter une classe
-					.attr("class", ".bubble")
+					.attr("class", "bulle")
 					// UTILISER LES DONNÉES
 					// 5. placer les cercles de manière aléatoire
 					.attr("cx", function (d) {
@@ -168,52 +188,71 @@
 						return myRadius + (Math.random() * (height - myRadius * 2));
 					})
 					// 6. Déterminer la circonférence du cercle selon la taille de la valeur de priorite
-					.attr('r', 0);
-				//					.attr("r", function (d) {
-				//						return r(d.priorite);
-				//					});
-				// Ajouter le titre en attribut title
-				//.attr("title", function (d) {
-				//	return d.id + " " + d.titre;
-				//})
-				// Afficher la valeur priorite sur la barre
-				//.append("p").html(function (d) {
-				//	return d.priorite;
-				//});
+					.attr('r', 0)
+					//gestionnaire d'événements
+					//					.on("click", function(d){
+					//						console.log(d.id + " " + d.titre + " " + d.priorite);
+					//					});
+					.on("click", function (d) {
+						// le mode vueDetails agrandit la bulle et affiche les détails
+						basculeDetails(this, d);
+					});
 
-				bubbles = bubbles.merge(bubblesE);
+				// assigner la variable temporaire à bulles
+				bulles = bulles.merge(bullesTemp);
 
-				bubbles.transition()
+				bulles.transition()
 					.duration(2000)
-					.attr('r', function (d) {
+					.attr("r", function (d) {
 						return d.radius;
 					});
 
-				simulation.nodes(nodes);
-
-
-				// Ajouter le figcaption
-				//				d3.select("figure").append("figcaption")
-				//					.html("Nombre de priorite dans chaque id de la série Harry Potter<br>(version anglophone)");
-
-				//				force.start();
-				//*/
-
-simulation.restart();
+				//partir la simulation
+				simulation.nodes(nodes)
+					.restart();
 
 			}
 
+			function basculeDetails(maBulle, d) {
+				// bascule mode détails
+				vueDetails = !vueDetails;
+				// si off
+				if (vueDetails) {
+					// maximise bulle
+					d3.select(maBulle).transition()
+						.duration(800)
+						.attr("r", Math.max(width, height) * 1.5);
+
+					// affiche info
+					details.html("<h3>" + d.titre + "</h3>" + "<p>Tags: " + d.tags + "</p>");
+					console.log(d.id + " " + d.titre + " " + d.priorite);
+				} else
+				// si on 
+				{
+					// rapetisse bulle
+					d3.select(maBulle).transition()
+						.duration(600)
+						.attr("r", function (d) {
+							return d.radius;
+						});
+
+					// enlève info
+					details.html("&nbsp;");
+				}
+			}
+
+			// fonction qui fait l'animation
 			function ticked() {
-				console.log("aaa");
-				bubbles
+				//				console.log("aaa");
+				bulles
 					.attr('cx', function (d) {
-					
-				var myRadius = r(d.priorite);
-						return d.x =Math.max(myRadius, Math.min(width - myRadius, d.x));
+
+						var myRadius = r(d.priorite);
+						return d.x = Math.max(myRadius, Math.min(width - myRadius, d.x));
 					})
 					.attr('cy', function (d) {
-					
-				var myRadius = r(d.priorite);
+
+						var myRadius = r(d.priorite);
 						return d.y = Math.max(myRadius, Math.min(height - myRadius, d.y));
 					});
 			}
@@ -221,7 +260,5 @@ simulation.restart();
 
 
 		}
-
-		
 	</script>
 </body>
